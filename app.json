@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "ikadou-app",
+    "slug": "ikadou-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./src/assets/onboarding/logo-ikadou.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#000000"
+        }
+      ],
+      "expo-font"
+    ],
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "fb340bce-e81e-448c-a8ed-e0b89e2c89a1"
+      }
+    }
+  }
+}
