@@ -218,6 +218,58 @@ function normalizePaymentsResponse(res) {
   return Array.isArray(data) ? data : [];
 }
 
+function getProjectTerrainKey(project) {
+  return String(
+    project?.terrain_id ??
+      project?.terrainId ??
+      project?.terrain?.id ??
+      project?.steps?.achat?.terrain_id ??
+      project?.steps?.achat?.terrainId ??
+      project?.id
+  );
+}
+
+function getProjectRank(project) {
+  const status = String(project?.status || '').toLowerCase();
+
+  if (status === 'completed') return 50;
+  if (status === 'active' || status === 'in_progress') return 40;
+  if (status === 'cancelled') return 10;
+  return 20;
+}
+
+function getProjectTimestamp(project) {
+  const raw = project?.updated_at || project?.created_at;
+  const time = raw ? new Date(raw).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+}
+
+function dedupeProjectsByTerrain(projects = []) {
+  const map = new Map();
+
+  projects.forEach((project) => {
+    const key = getProjectTerrainKey(project);
+    const existing = map.get(key);
+
+    if (!existing) {
+      map.set(key, project);
+      return;
+    }
+
+    const existingRank = getProjectRank(existing);
+    const nextRank = getProjectRank(project);
+
+    if (
+      nextRank > existingRank ||
+      (nextRank === existingRank && getProjectTimestamp(project) > getProjectTimestamp(existing))
+    ) {
+      map.set(key, project);
+    }
+  });
+
+  return Array.from(map.values());
+}
+
 export default function ProjectsHomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
@@ -268,9 +320,9 @@ export default function ProjectsHomeScreen({ navigation }) {
   }
 
   const visibleProjects = useMemo(
-    () => items.filter((p) => shouldDisplayProject(p)),
-    [items]
-  );
+  () => dedupeProjectsByTerrain(items.filter((p) => shouldDisplayProject(p))),
+  [items]
+);
 
   const activeProjects = useMemo(
     () =>
@@ -569,11 +621,6 @@ const totalAmount = getTerrainTotal(project);
   text={paymentSummary.label}
   success={paymentStarted}
 />
-{paymentStarted && paidAmount > 0 ? (
-  <PaymentAmountPill
-    text={`${formatMoney(paidAmount)} validés / ${formatMoney(totalAmount)}`}
-  />
-) : null}
 
 {paymentStarted && paidAmount > 0 ? (
   <PaymentAmountPill

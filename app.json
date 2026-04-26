@@ -2,14 +2,14 @@
   "expo": {
     "androidStatusBar": {
       "barStyle": "dark-content",
-      "backgroundColor": "#F7F4EF",
+      "backgroundColor": "#ffffff",
       "translucent": false
     },
     "name": "Ikadou",
     "slug": "ikadou-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/onboarding/logo-ikadou.png",
+    "icon": "./src/assets/onboarding/favicon.png",
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -23,7 +23,6 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "@maplibre/maplibre-react-native",
       "expo-font"
     ],
     "web": {
@@ -42,7 +41,7 @@
         }
       },
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/onboarding/logo-ikadou.png",
+        "foregroundImage": "./src/assets/onboarding/favicon.png",
         "backgroundColor": "#ffffff"
       }
     },

@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { emitAuthRequired } from '../lib/authEvents';
 
-export const BASE_URL = 'http://192.168.1.196:5000/api/v1';//https://ikadou-backend.onrender.com/api/v1
+export const BASE_URL = 'https://ikadou-backend.onrender.com/api/v1';//http://192.168.1.196:5000/api/v1
 
 const PUBLIC_HEADERS = {
   'Content-Type': 'application/json',
