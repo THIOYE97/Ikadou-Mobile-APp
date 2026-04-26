@@ -235,6 +235,11 @@ export default function ProjectDetailsScreen({ navigation, route }) {
     [project]
   );
 
+  const showBookVisitButton = useMemo(
+  () => canBookProjectVisit(project, visits),
+  [project, visits]
+);
+
   const steps = useMemo(() => {
     return [
       project?.steps?.simulation,
@@ -363,6 +368,24 @@ export default function ProjectDetailsScreen({ navigation, route }) {
           <Ionicons name="card-outline" size={18} color="#fff" />
           <Text style={styles.primaryBtnText}>Créer un paiement</Text>
         </TouchableOpacity>
+
+        {showBookVisitButton ? (
+  <TouchableOpacity
+    style={styles.primaryBtn}
+    onPress={() =>
+      navigation.navigate('BookVisit', {
+        source: 'project_detail',
+        projectId: project.id,
+        terrainId: project?.terrain_id ?? project?.terrainId ?? null,
+        terrainTitle: project?.terrain_title ?? null,
+      })
+    }
+    activeOpacity={0.9}
+  >
+    <Ionicons name="calendar-outline" size={18} color="#fff" />
+    <Text style={styles.primaryBtnText}>Planifier une visite</Text>
+  </TouchableOpacity>
+) : null}
 
         <Text style={styles.sectionTitle}>Étapes du projet</Text>
 
@@ -511,6 +534,31 @@ function SummaryBox({ icon, label, value }) {
       </Text>
     </View>
   );
+}
+
+function canBookProjectVisit(project, visits = []) {
+  const currentStep = String(project?.current_step || '').toLowerCase();
+
+  if (currentStep !== 'visite') return false;
+
+  if (!visits.length) return true;
+
+  const hasActiveOrDoneVisit = visits.some((visit) => {
+    const status = String(visit?.status || '').toLowerCase();
+
+    return [
+      'scheduled',
+      'confirmed',
+      'rescheduled',
+      'pending',
+      'requested',
+      'done',
+      'completed',
+      'visited',
+    ].includes(status);
+  });
+
+  return !hasActiveOrDoneVisit;
 }
 
 const styles = StyleSheet.create({

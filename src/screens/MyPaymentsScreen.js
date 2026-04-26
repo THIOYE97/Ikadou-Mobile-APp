@@ -137,33 +137,38 @@ export default function MyPaymentsScreen({ navigation }) {
   }
 
   function openPayment(payment) {
-    const status = String(payment?.status || '').toLowerCase();
-    const proofStatus = String(payment?.proof_status || '').toLowerCase();
+  const status = String(payment?.status || '').toLowerCase();
+  const proofStatus = String(payment?.proof_status || '').toLowerCase();
 
-    const isDone = ['confirmed', 'done', 'completed'].includes(status);
-    const isProofPending = ['submitted', 'under_review'].includes(proofStatus);
+  const isConfirmed = ['confirmed', 'done', 'completed'].includes(status);
 
-    if (isDone) {
-      setDoneModal({
-        visible: true,
-        payment,
-      });
-      return;
-    }
+  const hasProofSubmitted = [
+    'submitted',
+    'under_review',
+    'approved',
+  ].includes(proofStatus);
 
-    if (isProofPending) {
-      setProofPendingModal({
-        visible: true,
-        payment,
-      });
-      return;
-    }
-
-    navigation.navigate('PaymentReference', {
-      paymentId: payment.id,
+  if (isConfirmed) {
+    setDoneModal({
+      visible: true,
       payment,
     });
+    return;
   }
+
+  if (hasProofSubmitted) {
+    setProofPendingModal({
+      visible: true,
+      payment,
+    });
+    return;
+  }
+
+  navigation.navigate('PaymentReference', {
+    paymentId: payment.id,
+    payment,
+  });
+}
 
   function closeProofPendingModal() {
     setProofPendingModal({
@@ -300,13 +305,13 @@ export default function MyPaymentsScreen({ navigation }) {
               </View>
 
               <View style={styles.cardFooter}>
-                <Text style={styles.openText}>
-                  {['confirmed', 'done', 'completed'].includes(String(item?.status || '').toLowerCase())
-                    ? 'Paiement confirmé'
-                    : ['submitted', 'under_review'].includes(String(item?.proof_status || '').toLowerCase())
-                    ? 'Validation en attente'
-                    : 'Voir les détails'}
-                </Text>
+               <Text style={styles.openText}>
+  {['confirmed', 'done', 'completed'].includes(String(item?.status || '').toLowerCase())
+    ? 'Paiement confirmé'
+    : ['submitted', 'under_review', 'approved'].includes(String(item?.proof_status || '').toLowerCase())
+    ? 'Justificatif soumis'
+    : 'Voir les détails'}
+</Text>
                 <Ionicons name="chevron-forward" size={20} color="#999" />
               </View>
             </TouchableOpacity>
@@ -351,19 +356,45 @@ function MetaChip({ icon, label }) {
 
 function ProofPendingModal({ visible, payment, onClose, onBackToList }) {
   const amount = Number(payment?.amount_xof ?? payment?.amountXof ?? payment?.amount ?? 0);
+  const proofStatus = String(payment?.proof_status || '').toLowerCase();
+
+  const title =
+    proofStatus === 'approved'
+      ? 'Justificatif validé'
+      : proofStatus === 'rejected'
+      ? 'Justificatif rejeté'
+      : 'Justificatif soumis';
+
+  const text =
+    proofStatus === 'approved'
+      ? "Votre justificatif a été validé. Le paiement attend maintenant la confirmation finale de l’équipe Ikadou avant d’être considéré comme confirmé."
+      : "Votre justificatif a bien été soumis. Vous ne pouvez plus modifier cette soumission pendant que l’équipe Ikadou vérifie votre paiement.";
+
+  const icon =
+    proofStatus === 'approved'
+      ? 'checkmark-circle-outline'
+      : 'time-outline';
+
+  const iconColor =
+    proofStatus === 'approved'
+      ? BRAND.success
+      : BRAND.orange;
+
+  const iconBg =
+    proofStatus === 'approved'
+      ? BRAND.successSoft
+      : BRAND.orangeSoft;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <View style={[styles.modalIconWrap, { backgroundColor: BRAND.orangeSoft }]}>
-            <Ionicons name="time-outline" size={30} color={BRAND.orange} />
+          <View style={[styles.modalIconWrap, { backgroundColor: iconBg }]}>
+            <Ionicons name={icon} size={30} color={iconColor} />
           </View>
 
-          <Text style={styles.modalTitle}>Justificatif en attente</Text>
-          <Text style={styles.modalText}>
-            Votre justificatif a bien été soumis. Merci de patienter pendant que l’équipe Ikadou vérifie votre paiement.
-          </Text>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <Text style={styles.modalText}>{text}</Text>
 
           <View style={styles.modalInfoBox}>
             <View style={styles.modalInfoRow}>
@@ -384,6 +415,13 @@ function ProofPendingModal({ visible, payment, onClose, onBackToList }) {
               <Ionicons name="document-text-outline" size={16} color={BRAND.teal} />
               <Text style={styles.modalInfoText}>
                 {proofMeta(payment?.proof_status)}
+              </Text>
+            </View>
+
+            <View style={styles.modalInfoRow}>
+              <Ionicons name="hourglass-outline" size={16} color={BRAND.teal} />
+              <Text style={styles.modalInfoText}>
+                Statut paiement : {statusMeta(payment?.status).label}
               </Text>
             </View>
           </View>

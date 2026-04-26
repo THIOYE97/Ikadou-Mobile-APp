@@ -28,6 +28,7 @@ const BRAND = {
   successSoft: 'rgba(20,164,77,0.10)',
   danger: '#D64545',
   dangerSoft: 'rgba(214,69,69,0.08)',
+  blackSoft: '#1C1A17',
 };
 
 const MONTHS_FR = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun', 'jul', 'aoû', 'sep', 'oct', 'nov', 'déc'];
@@ -40,10 +41,6 @@ function normalizeVisitsResponse(r) {
 
 function classifyVisitStatus(status) {
   const s = String(status || '').toLowerCase();
-
-  if (['confirmed', 'scheduled', 'pending', 'requested', 'rescheduled', 'planned'].includes(s)) {
-    return 'upcoming';
-  }
 
   if (['completed', 'done', 'realized', 'realised', 'visited'].includes(s)) {
     return 'completed';
@@ -102,6 +99,11 @@ function formatVisitFullDate(dateValue) {
   return `${DAYS_FR[d.getDay()]} ${d.getDate()} ${MONTHS_FR[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+function formatTime(value) {
+  if (!value) return 'Heure non renseignée';
+  return String(value).slice(0, 5);
+}
+
 function sortVisitsByDateDesc(a, b) {
   const aDate = new Date(a?.visit_date ?? a?.date ?? 0).getTime();
   const bDate = new Date(b?.visit_date ?? b?.date ?? 0).getTime();
@@ -113,7 +115,7 @@ function getVisitPopupContent(visit) {
   const terrainTitle = visit?.terrainTitle ?? visit?.terrain_title ?? 'Terrain';
   const location = visit?.location ?? visit?.terrain_location ?? 'Localisation non renseignée';
   const dateLabel = formatVisitFullDate(visit?.visit_date ?? visit?.date);
-  const timeLabel = visit?.visit_time ?? visit?.slot ?? 'Heure non renseignée';
+  const timeLabel = formatTime(visit?.visit_time ?? visit?.slot);
   const note = visit?.notes ?? visit?.note ?? null;
 
   if (normalized === 'completed') {
@@ -121,11 +123,10 @@ function getVisitPopupContent(visit) {
       icon: 'checkmark-circle-outline',
       accent: BRAND.success,
       accentSoft: BRAND.successSoft,
-      title: 'Visite déjà réalisée',
-      description:
-        "Cette visite a déjà été effectuée. Vous pouvez consulter les informations du rendez-vous ci-dessous.",
+      title: 'Visite réalisée',
+      description: 'Cette visite a déjà été effectuée. Voici le résumé du rendez-vous.',
       ctaLabel: 'Compris',
-      statusLabel: 'Visite réalisée',
+      statusLabel: 'Réalisée',
       terrainTitle,
       location,
       dateLabel,
@@ -140,10 +141,9 @@ function getVisitPopupContent(visit) {
       accent: BRAND.danger,
       accentSoft: BRAND.dangerSoft,
       title: 'Visite annulée',
-      description:
-        "Cette visite n'est plus active. Les informations du rendez-vous sont affichées à titre de suivi.",
+      description: 'Cette visite n’est plus active. Les informations restent disponibles pour votre suivi.',
       ctaLabel: 'Compris',
-      statusLabel: 'Visite annulée',
+      statusLabel: 'Annulée',
       terrainTitle,
       location,
       dateLabel,
@@ -157,10 +157,9 @@ function getVisitPopupContent(visit) {
     accent: BRAND.orange,
     accentSoft: BRAND.orangeSoft,
     title: 'Visite programmée',
-    description:
-      'Voici les informations de votre visite prévue. Présentez-vous à l’heure indiquée ou contactez Ikadou en cas de besoin.',
+    description: 'Votre rendez-vous terrain est planifié. Présentez-vous à l’heure indiquée.',
     ctaLabel: 'D’accord',
-    statusLabel: 'Visite à venir',
+    statusLabel: 'À venir',
     terrainTitle,
     location,
     dateLabel,
@@ -171,18 +170,15 @@ function getVisitPopupContent(visit) {
 
 export default function MyVisitsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState(null);
 
   const loadVisits = useCallback(async () => {
-    try {
-      const res = await getMyVisits();
-      setVisits(normalizeVisitsResponse(res));
-    } catch {
-      setVisits([]);
-    }
+    const res = await getMyVisits();
+    setVisits(normalizeVisitsResponse(res));
   }, []);
 
   useFocusEffect(
@@ -191,8 +187,10 @@ export default function MyVisitsScreen({ navigation }) {
 
       (async () => {
         setLoading(true);
+
         try {
           const res = await getMyVisits();
+
           if (mounted) {
             setVisits(normalizeVisitsResponse(res));
           }
@@ -212,6 +210,17 @@ export default function MyVisitsScreen({ navigation }) {
       };
     }, [])
   );
+
+  const stats = useMemo(() => {
+    return visits.reduce(
+      (acc, visit) => {
+        const type = classifyVisitStatus(visit?.status);
+        acc[type] += 1;
+        return acc;
+      },
+      { upcoming: 0, completed: 0, cancelled: 0 }
+    );
+  }, [visits]);
 
   const sections = useMemo(() => {
     const upcoming = visits
@@ -235,15 +244,14 @@ export default function MyVisitsScreen({ navigation }) {
 
   async function onRefresh() {
     setRefreshing(true);
+
     try {
       await loadVisits();
+    } catch {
+      setVisits([]);
     } finally {
       setRefreshing(false);
     }
-  }
-
-  function openVisit(visit) {
-    setSelectedVisit(visit);
   }
 
   const visitModal = selectedVisit ? getVisitPopupContent(selectedVisit) : null;
@@ -251,7 +259,7 @@ export default function MyVisitsScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.85}>
           <Ionicons name="arrow-back" size={18} color={BRAND.text} />
         </TouchableOpacity>
 
@@ -263,7 +271,9 @@ export default function MyVisitsScreen({ navigation }) {
 
       {loading ? (
         <View style={styles.loaderWrap}>
-          <ActivityIndicator color={BRAND.teal} />
+          <View style={styles.loaderOrb}>
+            <ActivityIndicator color={BRAND.teal} />
+          </View>
           <Text style={styles.loaderText}>Chargement des visites…</Text>
         </View>
       ) : (
@@ -272,26 +282,48 @@ export default function MyVisitsScreen({ navigation }) {
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: Math.max(insets.bottom + 24, 32) },
+            { paddingBottom: Math.max(insets.bottom + 24, 34) },
           ]}
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={false}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={BRAND.teal}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND.teal} />
+          }
+          ListHeaderComponent={
+            visits.length > 0 ? (
+              <View style={styles.heroCard}>
+                <View style={styles.heroTop}>
+                  <View style={styles.heroIconWrap}>
+                    <Ionicons name="calendar-outline" size={22} color={BRAND.teal} />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.heroTitle}>Suivi de vos visites</Text>
+                    <Text style={styles.heroSub}>
+                      Retrouvez vos rendez-vous à venir, réalisés ou annulés.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.statsRow}>
+                  <VisitStat icon="time-outline" label="À venir" value={stats.upcoming} color={BRAND.orange} bg={BRAND.orangeSoft} />
+                  <VisitStat icon="checkmark-circle-outline" label="Réalisées" value={stats.completed} color={BRAND.success} bg={BRAND.successSoft} />
+                  <VisitStat icon="close-circle-outline" label="Annulées" value={stats.cancelled} color={BRAND.danger} bg={BRAND.dangerSoft} />
+                </View>
+              </View>
+            ) : null
           }
           ListEmptyComponent={
             <View style={styles.emptyCard}>
               <View style={styles.emptyIconWrap}>
-                <Ionicons name="calendar-clear-outline" size={28} color={BRAND.teal} />
+                <Ionicons name="calendar-clear-outline" size={30} color={BRAND.teal} />
               </View>
+
               <Text style={styles.emptyTitle}>Aucune visite</Text>
               <Text style={styles.emptySub}>
                 Vos visites à venir, réalisées ou annulées apparaîtront ici.
               </Text>
+
               <TouchableOpacity
                 style={styles.exploreBtn}
                 onPress={() => navigation.navigate('DiscoverTab')}
@@ -304,13 +336,14 @@ export default function MyVisitsScreen({ navigation }) {
           renderSectionHeader={({ section }) => (
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
+
               <View style={styles.sectionCount}>
                 <Text style={styles.sectionCountText}>{section.data.length}</Text>
               </View>
             </View>
           )}
           renderItem={({ item }) => (
-            <VisitCard visit={item} onPress={() => openVisit(item)} />
+            <VisitCard visit={item} onPress={() => setSelectedVisit(item)} />
           )}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           SectionSeparatorComponent={() => <View style={{ height: 18 }} />}
@@ -326,23 +359,35 @@ export default function MyVisitsScreen({ navigation }) {
   );
 }
 
+function VisitStat({ icon, label, value, color, bg }) {
+  return (
+    <View style={styles.statBox}>
+      <View style={[styles.statIconWrap, { backgroundColor: bg }]}>
+        <Ionicons name={icon} size={15} color={color} />
+      </View>
+
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
 function VisitCard({ visit, onPress }) {
   const dateValue = visit.visit_date ?? visit.date;
-  const timeValue = visit.visit_time ?? visit.slot ?? '—';
+  const timeValue = formatTime(visit.visit_time ?? visit.slot);
   const terrainTitle = visit.terrainTitle ?? visit.terrain_title ?? 'Terrain';
   const location = visit.location ?? visit.terrain_location ?? '—';
   const note = visit.notes ?? visit.note ?? null;
+  const statusUi = getVisitStatusUi(visit.status);
 
   const d = dateValue ? new Date(dateValue) : null;
-  const statusUi = getVisitStatusUi(visit.status);
+  const hasValidDate = d && !Number.isNaN(d.getTime());
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
       <View style={styles.dateBox}>
-        <Text style={styles.dateDay}>{d && !Number.isNaN(d.getTime()) ? d.getDate() : '—'}</Text>
-        <Text style={styles.dateMonth}>
-          {d && !Number.isNaN(d.getTime()) ? MONTHS_FR[d.getMonth()] : '—'}
-        </Text>
+        <Text style={styles.dateDay}>{hasValidDate ? d.getDate() : '—'}</Text>
+        <Text style={styles.dateMonth}>{hasValidDate ? MONTHS_FR[d.getMonth()] : '—'}</Text>
       </View>
 
       <View style={{ flex: 1 }}>
@@ -367,22 +412,9 @@ function VisitCard({ visit, onPress }) {
           </View>
         </View>
 
-        <View style={styles.metaRow}>
-          <Ionicons name="calendar-outline" size={13} color={BRAND.textSoft} />
-          <Text style={styles.metaText}>{formatVisitDate(dateValue)}</Text>
-        </View>
-
-        <View style={styles.metaRow}>
-          <Ionicons name="time-outline" size={13} color={BRAND.textSoft} />
-          <Text style={styles.metaText}>{timeValue}</Text>
-        </View>
-
-        <View style={styles.metaRow}>
-          <Ionicons name="location-outline" size={13} color={BRAND.textSoft} />
-          <Text style={styles.metaText} numberOfLines={1}>
-            {location}
-          </Text>
-        </View>
+        <MetaRow icon="calendar-outline" text={formatVisitDate(dateValue)} />
+        <MetaRow icon="time-outline" text={timeValue} />
+        <MetaRow icon="location-outline" text={location} />
 
         {note ? (
           <View style={styles.noteBox}>
@@ -393,8 +425,21 @@ function VisitCard({ visit, onPress }) {
         ) : null}
       </View>
 
-      <Ionicons name="chevron-forward" size={18} color="#999" />
+      <View style={styles.cardChevron}>
+        <Ionicons name="chevron-forward" size={17} color={BRAND.textSoft} />
+      </View>
     </TouchableOpacity>
+  );
+}
+
+function MetaRow({ icon, text }) {
+  return (
+    <View style={styles.metaRow}>
+      <Ionicons name={icon} size={13} color={BRAND.textSoft} />
+      <Text style={styles.metaText} numberOfLines={1}>
+        {text}
+      </Text>
+    </View>
   );
 }
 
@@ -404,31 +449,40 @@ function VisitInfoModal({ visible, visit, onClose }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          <View style={[styles.modalIconWrap, { backgroundColor: visit.accentSoft }]}>
-            <Ionicons name={visit.icon} size={28} color={visit.accent} />
+        <View style={styles.modalCardCompact}>
+          <View style={styles.modalHeaderCompact}>
+            <View style={[styles.modalIconWrapCompact, { backgroundColor: visit.accentSoft }]}>
+              <Ionicons name={visit.icon} size={22} color={visit.accent} />
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modalTitleCompact}>{visit.title}</Text>
+
+              <View style={[styles.modalStatusPillCompact, { backgroundColor: visit.accentSoft }]}>
+                <Text style={[styles.modalStatusText, { color: visit.accent }]}>
+                  {visit.statusLabel}
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={onClose} activeOpacity={0.85}>
+              <Ionicons name="close" size={18} color={BRAND.textSoft} />
+            </TouchableOpacity>
           </View>
 
-          <Text style={styles.modalTitle}>{visit.title}</Text>
-          <Text style={styles.modalDescription}>{visit.description}</Text>
+          <Text style={styles.modalDescriptionCompact}>{visit.description}</Text>
 
-          <View style={[styles.modalStatusPill, { backgroundColor: visit.accentSoft }]}>
-            <Text style={[styles.modalStatusText, { color: visit.accent }]}>
-              {visit.statusLabel}
-            </Text>
-          </View>
-
-          <View style={styles.modalInfoCard}>
+          <View style={styles.modalInfoCardCompact}>
             <ModalInfoRow icon="home-outline" label="Terrain" value={visit.terrainTitle} />
             <ModalInfoRow icon="calendar-outline" label="Date" value={visit.dateLabel} />
             <ModalInfoRow icon="time-outline" label="Heure" value={visit.timeLabel} />
-            <ModalInfoRow icon="location-outline" label="Localisation" value={visit.location} />
+            <ModalInfoRow icon="location-outline" label="Lieu" value={visit.location} />
             {visit.note ? (
               <ModalInfoRow icon="document-text-outline" label="Note" value={visit.note} multiline />
             ) : null}
           </View>
 
-          <TouchableOpacity style={styles.modalPrimaryBtn} onPress={onClose} activeOpacity={0.9}>
+          <TouchableOpacity style={styles.modalPrimaryBtnCompact} onPress={onClose} activeOpacity={0.9}>
             <Text style={styles.modalPrimaryBtnText}>{visit.ctaLabel}</Text>
           </TouchableOpacity>
         </View>
@@ -439,17 +493,14 @@ function VisitInfoModal({ visible, visit, onClose }) {
 
 function ModalInfoRow({ icon, label, value, multiline = false }) {
   return (
-    <View style={styles.modalInfoRow}>
-      <View style={styles.modalInfoIcon}>
-        <Ionicons name={icon} size={16} color={BRAND.teal} />
+    <View style={styles.modalInfoRowCompact}>
+      <View style={styles.modalInfoIconCompact}>
+        <Ionicons name={icon} size={14} color={BRAND.teal} />
       </View>
 
       <View style={{ flex: 1 }}>
-        <Text style={styles.modalInfoLabel}>{label}</Text>
-        <Text
-          style={styles.modalInfoValue}
-          numberOfLines={multiline ? 4 : 2}
-        >
+        <Text style={styles.modalInfoLabelCompact}>{label}</Text>
+        <Text style={styles.modalInfoValueCompact} numberOfLines={multiline ? 3 : 1}>
           {value || '—'}
         </Text>
       </View>
@@ -485,7 +536,7 @@ const styles = StyleSheet.create({
 
   headerTitle: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '900',
     color: BRAND.text,
   },
 
@@ -502,6 +553,17 @@ const styles = StyleSheet.create({
     gap: 10,
   },
 
+  loaderOrb: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: BRAND.white,
+    borderWidth: 1,
+    borderColor: BRAND.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   loaderText: {
     fontSize: 13,
     color: BRAND.textSoft,
@@ -510,6 +572,87 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 4,
+  },
+
+  heroCard: {
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: BRAND.border,
+    padding: 16,
+    marginBottom: 18,
+    shadowColor: '#111111',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
+  },
+
+  heroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 14,
+  },
+
+  heroIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: BRAND.tealSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  heroTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: BRAND.text,
+    marginBottom: 4,
+  },
+
+  heroSub: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: BRAND.textSoft,
+  },
+
+  statsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  statBox: {
+    flex: 1,
+    backgroundColor: '#FCFAF7',
+    borderWidth: 1,
+    borderColor: BRAND.border,
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+
+  statIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+
+  statValue: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: BRAND.text,
+  },
+
+  statLabel: {
+    fontSize: 11,
+    color: BRAND.textSoft,
+    fontWeight: '700',
+    marginTop: 1,
   },
 
   sectionHeader: {
@@ -521,7 +664,7 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     color: BRAND.textSoft,
@@ -540,32 +683,39 @@ const styles = StyleSheet.create({
   sectionCountText: {
     color: BRAND.teal,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 
   card: {
-    backgroundColor: BRAND.white,
-    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: BRAND.border,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
+    shadowColor: '#111111',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
   },
 
   dateBox: {
-    width: 50,
-    height: 56,
-    borderRadius: 16,
+    width: 54,
+    height: 62,
+    borderRadius: 18,
     backgroundColor: BRAND.tealSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(0,140,140,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   dateDay: {
-    fontSize: 20,
-    lineHeight: 22,
+    fontSize: 21,
+    lineHeight: 23,
     fontWeight: '900',
     color: BRAND.teal,
   },
@@ -574,19 +724,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: BRAND.teal,
     textTransform: 'lowercase',
+    fontWeight: '700',
   },
 
   cardTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: 8,
     marginBottom: 8,
   },
 
   cardTitle: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '900',
     color: BRAND.text,
   },
 
@@ -602,7 +753,7 @@ const styles = StyleSheet.create({
 
   statusText: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 
   metaRow: {
@@ -616,11 +767,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     color: BRAND.textSoft,
+    fontWeight: '600',
   },
 
   noteBox: {
     marginTop: 8,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: '#FCFAF7',
     borderWidth: 1,
     borderColor: BRAND.border,
     borderRadius: 14,
@@ -634,9 +786,19 @@ const styles = StyleSheet.create({
     color: BRAND.textSoft,
   },
 
+  cardChevron: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F4F1EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+
   emptyCard: {
     backgroundColor: BRAND.white,
-    borderRadius: 22,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: BRAND.border,
     padding: 24,
@@ -656,7 +818,7 @@ const styles = StyleSheet.create({
 
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '900',
     color: BRAND.text,
     marginBottom: 8,
     textAlign: 'center',
@@ -681,109 +843,129 @@ const styles = StyleSheet.create({
 
   exploreBtnText: {
     color: '#fff',
-    fontWeight: '800',
+    fontWeight: '900',
     fontSize: 14,
   },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(17,17,17,0.42)',
+    backgroundColor: 'rgba(17,17,17,0.38)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
   },
 
-  modalCard: {
+  modalCardCompact: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 350,
     backgroundColor: BRAND.white,
-    borderRadius: 28,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: BRAND.border,
-    padding: 22,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
 
-  modalIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  modalHeaderCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+
+  modalIconWrapCompact: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center',
-    marginBottom: 14,
   },
 
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '800',
+  modalTitleCompact: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '900',
     color: BRAND.text,
-    textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 5,
   },
 
-  modalDescription: {
-    fontSize: 13,
-    lineHeight: 20,
+  modalCloseBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F4F1EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  modalDescriptionCompact: {
+    fontSize: 12,
+    lineHeight: 18,
     color: BRAND.textSoft,
-    textAlign: 'center',
     marginBottom: 12,
   },
 
-  modalStatusPill: {
-    alignSelf: 'center',
+  modalStatusPillCompact: {
+    alignSelf: 'flex-start',
     borderRadius: 999,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    marginBottom: 16,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
   },
 
   modalStatusText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 
-  modalInfoCard: {
-    gap: 10,
-    marginBottom: 18,
+  modalInfoCardCompact: {
+    gap: 8,
+    marginBottom: 14,
   },
 
-  modalInfoRow: {
-    backgroundColor: '#FAF8F5',
+  modalInfoRowCompact: {
+    backgroundColor: '#FCFAF7',
     borderWidth: 1,
     borderColor: BRAND.border,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    borderRadius: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
+    alignItems: 'center',
+    gap: 9,
   },
 
-  modalInfoIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  modalInfoIconCompact: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: BRAND.tealSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  modalInfoLabel: {
-    fontSize: 12,
+  modalInfoLabelCompact: {
+    fontSize: 10,
     color: BRAND.textSoft,
-    marginBottom: 3,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 2,
   },
 
-  modalInfoValue: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '800',
+  modalInfoValueCompact: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '900',
     color: BRAND.text,
   },
 
-  modalPrimaryBtn: {
-    minHeight: 48,
-    borderRadius: 18,
+  modalPrimaryBtnCompact: {
+    minHeight: 44,
+    borderRadius: 16,
     backgroundColor: BRAND.teal,
     alignItems: 'center',
     justifyContent: 'center',
@@ -791,7 +973,7 @@ const styles = StyleSheet.create({
 
   modalPrimaryBtnText: {
     color: '#fff',
-    fontWeight: '800',
-    fontSize: 15,
+    fontWeight: '900',
+    fontSize: 14,
   },
 });

@@ -1,9 +1,15 @@
 {
   "expo": {
-    "name": "ikadou-app",
+    "androidStatusBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#F7F4EF",
+      "translucent": false
+    },
+    "name": "Ikadou",
     "slug": "ikadou-app",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./src/assets/onboarding/logo-ikadou.png",
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -14,9 +20,10 @@
           "image": "./src/assets/onboarding/logo-ikadou.png",
           "imageWidth": 220,
           "resizeMode": "contain",
-          "backgroundColor": "#000000"
+          "backgroundColor": "#ffffff"
         }
       ],
+      "@maplibre/maplibre-react-native",
       "expo-font"
     ],
     "web": {
@@ -26,6 +33,21 @@
       "eas": {
         "projectId": "fb340bce-e81e-448c-a8ed-e0b89e2c89a1"
       }
+    },
+    "android": {
+      "package": "com.thioye.ikadouapp",
+      "config": {
+        "googleMaps": {
+          "apiKey": "TA_CLE_GOOGLE_MAPS_ANDROID"
+        }
+      },
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/onboarding/logo-ikadou.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.thioye.ikadouapp"
     }
   }
 }

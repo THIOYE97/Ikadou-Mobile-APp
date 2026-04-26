@@ -118,6 +118,22 @@ const mergeTerrainData = (base = {}, incoming = {}) => {
   };
 };
 
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function isValidCoordinate(lat, lng) {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
 function formatPrice(value, currency = 'FCFA') {
   return `${Number(value || 0).toLocaleString('fr-FR')} ${currency}`;
 }
@@ -303,8 +319,9 @@ export default function TerrainDetailScreen({ navigation, route }) {
   const price = Number(terrain?.price ?? 0);
   const currency = terrain?.currency === 'XOF' ? 'FCFA' : terrain?.currency ?? 'FCFA';
   const description = terrain?.description ?? '';
-  const latitude = terrain?.latitude ?? terrain?.lat ?? null;
-  const longitude = terrain?.longitude ?? terrain?.lng ?? null;
+  const latitude = toNumber(terrain?.latitude ?? terrain?.lat);
+const longitude = toNumber(terrain?.longitude ?? terrain?.lng);
+const hasValidMapCoordinates = isValidCoordinate(latitude, longitude);
 
   const offers = getOfferItems(terrain);
   const tag = getHighlightTag(terrain);
@@ -321,26 +338,26 @@ export default function TerrainDetailScreen({ navigation, route }) {
       : description;
 
   function openInternalMap() {
-    if (latitude == null || longitude == null) return;
+  if (!hasValidMapCoordinates) return;
 
-    navigation.navigate('MapView', {
-      source: 'terrain_detail',
-      terrainId: terrain?.id ?? id ?? null,
-      terrainTitle: title,
-      terrainLocation: location,
-      marker: {
-        id: terrain?.id ?? id ?? 'terrain',
-        title,
-        description: location,
-        latitude: Number(latitude),
-        longitude: Number(longitude),
-      },
-      initialCoordinates: {
-        latitude: Number(latitude),
-        longitude: Number(longitude),
-      },
-    });
-  }
+  navigation.navigate('MapView', {
+    source: 'terrain_detail',
+    terrainId: terrain?.id ?? id ?? null,
+    terrainTitle: title,
+    terrainLocation: location,
+    marker: {
+      id: terrain?.id ?? id ?? 'terrain',
+      title,
+      description: location,
+      latitude,
+      longitude,
+    },
+    initialCoordinates: {
+      latitude,
+      longitude,
+    },
+  });
+}
 
   if (loading && !terrain) {
     return (
@@ -512,7 +529,7 @@ export default function TerrainDetailScreen({ navigation, route }) {
             <InfoCardRow icon="clipboard-outline" label="Numéro NINACAD" value={ninacad} />
           </View>
 
-          {latitude != null && longitude != null ? (
+          {hasValidMapCoordinates ? (
             <>
               <Separator />
               <SectionTitle title="Où se trouve le terrain" />

@@ -12,6 +12,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { listClientProjects, cancelClientProject } from '../api/clientProjects';
+import { getClientPayments } from '../api/payments';
+
 
 const BRAND = {
   bg: '#F7F4EF',
@@ -81,6 +83,40 @@ function getStepAccent(step) {
       return { icon: 'layers-outline', color: BRAND.teal, bg: BRAND.tealSoft };
   }
 }
+function getValidatedPaidAmount(project, payments = []) {
+  const terrainId = project?.terrain_id ?? project?.terrainId ?? null;
+
+  if (!terrainId) return 0;
+
+  return payments
+    .filter((p) => {
+      const sameTerrain =
+        String(p?.terrain_id ?? p?.terrainId ?? '') === String(terrainId);
+
+      const confirmed = ['confirmed', 'paid', 'approved', 'completed'].includes(
+        String(p?.status || '').toLowerCase()
+      );
+
+      return sameTerrain && confirmed;
+    })
+    .reduce((sum, p) => {
+      return sum + Number(p?.amount_xof ?? p?.amount ?? 0);
+    }, 0);
+}
+
+function getTerrainTotal(project) {
+  return (
+    Number(
+      project?.terrain_price ??
+      project?.price ??
+      project?.amount_total ??
+      project?.steps?.achat?.terrain_price ??
+      project?.steps?.achat?.total_amount ??
+      0
+    ) || 0
+  );
+}
+
 
 function getProjectProgress(project) {
   const steps = Object.values(project?.steps || {});
@@ -104,6 +140,12 @@ function formatProjectDate(value) {
     return '—';
   }
 }
+
+function formatMoney(value, currency = 'FCFA') {
+  const amount = Number(value || 0);
+  return `${amount.toLocaleString('fr-FR')} ${currency}`;
+}
+
 
 function getPaymentSummary(project) {
   const steps = project?.steps || {};
@@ -165,11 +207,22 @@ function hasProjectPaymentStarted(project) {
   );
 }
 
+function normalizePaymentsResponse(res) {
+  const data =
+    res?.data?.data?.items ??
+    res?.data?.items ??
+    res?.data?.data ??
+    res?.data ??
+    [];
+
+  return Array.isArray(data) ? data : [];
+}
 
 export default function ProjectsHomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
   const [items, setItems] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -186,11 +239,18 @@ export default function ProjectsHomeScreen({ navigation }) {
   const [createGuideModal, setCreateGuideModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  const load = useCallback(async () => {
-    const res = await listClientProjects();
-    const rows = res?.data?.data ?? [];
-    setItems(Array.isArray(rows) ? rows : []);
-  }, []);
+ const load = useCallback(async () => {
+  const [projectsRes, paymentsRes] = await Promise.all([
+    listClientProjects(),
+    getClientPayments().catch(() => null),
+  ]);
+
+  const rows = projectsRes?.data?.data ?? [];
+  const allPayments = paymentsRes ? normalizePaymentsResponse(paymentsRes) : [];
+
+  setItems(Array.isArray(rows) ? rows : []);
+  setPayments(allPayments);
+}, []);
 
   useEffect(() => {
     load()
@@ -368,12 +428,13 @@ export default function ProjectsHomeScreen({ navigation }) {
           </View>
         }
         renderItem={({ item, index }) => (
-          <ProjectListCard
-            project={item}
-            index={index}
-            onPress={() => openProject(item)}
-            onCancel={() => requestCancelProject(item)}
-          />
+         <ProjectListCard
+  project={item}
+  payments={payments}
+  index={index}
+  onPress={() => openProject(item)}
+  onCancel={() => requestCancelProject(item)}
+/>
         )}
         ListFooterComponent={
           cancelledProjects.length > 0 ? (
@@ -454,11 +515,13 @@ function MiniStatCard({ icon, label, value, danger = false }) {
   );
 }
 
-function ProjectListCard({ project, onPress, onCancel, index }) {
+function ProjectListCard({ project, payments = [], onPress, onCancel, index }) {
   const projectMeta = getProjectStatusMeta(project?.status);
   const stepMeta = getStepAccent(project?.current_step);
   const paymentSummary = getPaymentSummary(project);
   const paymentStarted = hasProjectPaymentStarted(project);
+  const paidAmount = getValidatedPaidAmount(project, payments);
+const totalAmount = getTerrainTotal(project);
 
   return (
     <View
@@ -467,6 +530,7 @@ function ProjectListCard({ project, onPress, onCancel, index }) {
         index === 0 && styles.projectCardFeatured,
       ]}
     >
+    
       <View style={styles.projectCardGlow} />
 
       <TouchableOpacity onPress={onPress} activeOpacity={0.92}>
@@ -505,6 +569,17 @@ function ProjectListCard({ project, onPress, onCancel, index }) {
   text={paymentSummary.label}
   success={paymentStarted}
 />
+{paymentStarted && paidAmount > 0 ? (
+  <PaymentAmountPill
+    text={`${formatMoney(paidAmount)} validés / ${formatMoney(totalAmount)}`}
+  />
+) : null}
+
+{paymentStarted && paidAmount > 0 ? (
+  <PaymentAmountPill
+    text={`${formatMoney(paidAmount)} validés / ${formatMoney(totalAmount)}`}
+  />
+) : null}
           <InfoPill
             icon="stats-chart-outline"
             text={`Progression ${getProjectProgress(project)}`}
@@ -557,10 +632,25 @@ function InfoPill({ icon, text, success = false }) {
         size={13}
         color={success ? BRAND.success : BRAND.textSoft}
       />
+      
       <Text
         style={[styles.infoPillText, success && styles.infoPillTextSuccess]}
         numberOfLines={1}
       >
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+function PaymentAmountPill({ text }) {
+  return (
+    <View style={styles.paymentAmountPill}>
+      <View style={styles.paymentAmountIconWrap}>
+        <Ionicons name="cash-outline" size={13} color={BRAND.success} />
+      </View>
+
+      <Text style={styles.paymentAmountText} numberOfLines={1}>
         {text}
       </Text>
     </View>
@@ -1389,5 +1479,32 @@ lockedProjectBtnText: {
   color: BRAND.textSoft,
   fontSize: 12,
   fontWeight: '800',
+},
+paymentAmountPill: {
+  minHeight: 42,
+  borderRadius: 15,
+  backgroundColor: 'rgba(20,164,77,0.07)',
+  borderWidth: 1,
+  borderColor: 'rgba(20,164,77,0.18)',
+  paddingHorizontal: 12,
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 8,
+},
+
+paymentAmountIconWrap: {
+  width: 24,
+  height: 24,
+  borderRadius: 12,
+  backgroundColor: BRAND.white,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+paymentAmountText: {
+  flex: 1,
+  color: BRAND.success,
+  fontSize: 12,
+  fontWeight: '900',
 },
 });
