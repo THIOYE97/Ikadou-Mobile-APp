@@ -888,7 +888,7 @@ function CreateProjectGuideModal({ visible, onClose, onOpenTerrains }) {
                 <Ionicons name="calculator-outline" size={16} color={BRAND.teal} />
               </View>
               <Text style={styles.guideText}>
-                Lancez une simulation si vous voulez commencer en paiement échelonné.
+                Lancez une simulation de financement si vous voulez commencer en paiement échelonné.
               </Text>
             </View>
 
@@ -896,7 +896,7 @@ function CreateProjectGuideModal({ visible, onClose, onOpenTerrains }) {
               <View style={styles.guideIconWrap}>
                 <Ionicons name="calendar-outline" size={16} color={BRAND.teal} />
               </View>
-              <Text style={styles.guideText}>Enchaînez avec la visite du terrain.</Text>
+              <Text style={styles.guideText}>Enchaînez avec par programmer une visite du terrain selectionné.</Text>
             </View>
 
             <View style={styles.guideRow}>

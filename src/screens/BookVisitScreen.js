@@ -477,7 +477,7 @@ export default function BookVisitScreen({ navigation, route }) {
                   </View>
 
                   <Text style={styles.visitFeeInfoText}>
-                    Les frais de visite s’élèvent à 10 000 FCFA. Ils couvrent l’organisation de
+                    Les frais de visite s’élèvent à 20 000 FCFA. Ils couvrent l’organisation de
                     votre déplacement, les frais de terrain, ainsi qu’un accueil avec boisson et
                     collation pendant la visite. Vous bénéficiez donc vous aussi de ces avantages
                     sur place. Ces frais permettent de confirmer le rendez-vous et ne sont pas

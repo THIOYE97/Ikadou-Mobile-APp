@@ -242,7 +242,7 @@ function getOfferItems(terrain) {
   items.push({
     icon: 'shield-checkmark-outline',
     title: 'Accompagnement Ikadou',
-    subtitle: 'Visite, simulation et accompagnement avant décision.',
+    subtitle: 'Visite, simulation de financement et accompagnement avant décision.',
   });
 
   return items;
@@ -534,7 +534,7 @@ const hasValidMapCoordinates = isValidCoordinate(latitude, longitude);
               <Separator />
               <SectionTitle title="Où se trouve le terrain" />
               <Text style={styles.mapText}>
-                La carte intégrée vous permet de voir la position du terrain sans sortir de l’application.
+                La carte intégrée vous permet de voir la position du terrain.
               </Text>
 
               <TouchableOpacity style={styles.mapCard} onPress={openInternalMap} activeOpacity={0.92}>
